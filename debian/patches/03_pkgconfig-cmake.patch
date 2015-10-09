@@ -1,0 +1,121 @@
+Description: Add pkg-config and cmake scripts
+Origin: vendor
+Forwarded: https://github.com/redis/hiredis/pull/129
+Author: Tom Lee <debian@tomlee.co>
+Last-Update: 2012-11-06
+
+--- /dev/null
++++ b/FindHiredis.cmake
+@@ -0,0 +1,34 @@
++# FindHiredis.cmake - Try to find the Hiredis library
++# Once done this will define
++#
++#  HIREDIS_FOUND - System has Hiredis
++#  HIREDIS_INCLUDE_DIR - The Hiredis include directory
++#  HIREDIS_LIBRARIES - The libraries needed to use Hiredis
++#  HIREDIS_DEFINITIONS - Compiler switches required for using Hiredis
++
++
++# use pkg-config to get the directories and then use these values
++# in the FIND_PATH() and FIND_RARY() calls
++FIND_PACKAGE(PkgConfig)
++PKG_SEARCH_MODULE(PC_HIREDIS REQUIRED hiredis)
++
++SET(HIREDIS_DEFINITIONS ${PC_HIREDIS_CFLAGS_OTHER})
++
++FIND_PATH(HIREDIS_INCLUDE_DIR NAMES hiredis/hiredis.h
++   HINTS
++   ${PC_HIREDIS_INCLUDEDIR}
++   ${PC_HIREDIS_INCLUDE_DIRS}
++   PATH_SUFFIXES hiredis
++   )
++
++FIND_LIBRARY(HIREDIS_LIBRARIES NAMES hiredis
++   HINTS
++   ${PC_HIREDIS_DIR}
++   ${PC_HIREDIS_LIBRARY_DIRS}
++   )
++
++
++INCLUDE(FindPackageHandleStandardArgs)
++FIND_PACKAGE_HANDLE_STANDARD_ARGS(Hiredis DEFAULT_MSG HIREDIS_LIBRARIES HIREDIS_INCLUDE_DIR)
++
++MARK_AS_ADVANCED(HIREDIS_INCLUDE_DIR HIREDIS_LIBRARIES)
+--- a/Makefile
++++ b/Makefile
+@@ -98,17 +98,25 @@
+ 	$(CC) -std=c99 -pedantic -c $(REAL_CFLAGS) $<
+ 
+ clean:
+-	rm -rf $(DYLIBNAME) $(STLIBNAME) $(BINS) hiredis-example* *.o *.gcda *.gcno *.gcov
++	rm -rf $(DYLIBNAME) $(STLIBNAME) $(BINS) hiredis-example* *.o *.gcda *.gcno *.gcov hiredis.pc
+ 
+ dep:
+ 	$(CC) -MM *.c
+ 
+ # Installation related variables and target
+-PREFIX?=$(DESTDIR)/usr
++SED?=sed
++INSTALL_PREFIX?=$(DESTDIR)/usr
++PREFIX?=$(INSTALL_PREFIX)
+ INCLUDE_PATH?=include/hiredis
+ LIBRARY_PATH?=lib
+-INSTALL_INCLUDE_PATH= $(PREFIX)/$(INCLUDE_PATH)
+-INSTALL_LIBRARY_PATH= $(PREFIX)/$(LIBRARY_PATH)
++LIB_PREFIX?=$(PREFIX)/$(LIBRARY_PATH)
++PKGCONFIG_PATH?=$(LIBRARY_PATH)/pkgconfig
++CMAKE_MODULES_PATH?=share/cmake/Modules
++INSTALL_INCLUDE_PATH= $(INSTALL_PREFIX)/$(INCLUDE_PATH)
++INSTALL_LIBRARY_PATH= $(INSTALL_PREFIX)/$(LIBRARY_PATH)
++INSTALL_PKGCONFIG_PATH= $(INSTALL_PREFIX)/$(PKGCONFIG_PATH)
++INSTALL_CMAKE_MODULES_PATH= $(INSTALL_PREFIX)/$(CMAKE_MODULES_PATH)
++PKG_CONFIG_CFLAGS?= -D_FILE_OFFSET_BITS=64
+ 
+ ifeq ($(uname_S),SunOS)
+   INSTALL?= cp -r
+@@ -116,13 +124,24 @@
+ 
+ INSTALL?= cp -a
+ 
+-install: $(DYLIBNAME) $(STLIBNAME)
++hiredis.pc: hiredis.pc.in
++	test -d $(INSTALL_PKGCONFIG_PATH) && \
++		$(SED) -e 's,@PREFIX@,$(PREFIX),g' \
++				-e 's,@LIB_PREFIX@,$(LIB_PREFIX),g' \
++				-e 's,@CFLAGS@,$(PKG_CONFIG_CFLAGS),g' $< >$@ || true
++
++install: $(DYLIBNAME) $(STLIBNAME) hiredis.pc
+ 	mkdir -p $(INSTALL_INCLUDE_PATH) $(INSTALL_LIBRARY_PATH)
+ 	$(INSTALL) hiredis.h async.h adapters $(INSTALL_INCLUDE_PATH)
+ 	$(INSTALL) $(DYLIBNAME) $(INSTALL_LIBRARY_PATH)/$(DYLIB_MINOR_NAME)
+ 	cd $(INSTALL_LIBRARY_PATH) && ln -sf $(DYLIB_MINOR_NAME) $(DYLIB_MAJOR_NAME)
+ 	cd $(INSTALL_LIBRARY_PATH) && ln -sf $(DYLIB_MAJOR_NAME) $(DYLIBNAME)
+ 	$(INSTALL) $(STLIBNAME) $(INSTALL_LIBRARY_PATH)
++	test -f hiredis.pc && \
++	test -d $(INSTALL_PKGCONFIG_PATH) && \
++		$(INSTALL) hiredis.pc $(INSTALL_PKGCONFIG_PATH) && \
++	test -d "$(INSTALL_CMAKE_MODULES_PATH)" && \
++		$(INSTALL) FindHiredis.cmake $(INSTALL_CMAKE_MODULES_PATH) || true
+ 
+ 32bit:
+ 	@echo ""
+@@ -145,4 +164,4 @@
+ noopt:
+ 	$(MAKE) OPTIMIZATION=""
+ 
+-.PHONY: all test check clean dep install 32bit gprof gcov noopt
++.PHONY: all test check clean dep install 32bit gprof gcov noopt hiredis.pc
+--- /dev/null
++++ b/hiredis.pc.in
+@@ -0,0 +1,11 @@
++prefix=@PREFIX@
++exec_prefix=${prefix}
++libdir=@LIB_PREFIX@
++includedir=${prefix}/include
++
++Name: Hiredis
++Description: Minimalistic C client library for the Redis database.
++Version: 0.11.0
++Libs: -L${libdir} -lhiredis
++Cflags: -I${includedir}/hiredis @CFLAGS@
++
