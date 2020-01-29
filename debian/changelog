@@ -1,3 +1,10 @@
+hiredis (0.11.0-4+deb8u1) jessie-security; urgency=high
+
+  * CVE-2020-7105: Prevent a large number of NULL pointer redeferences
+    due to unchecked return values from malloc (etc.). (Closes: #949995)
+
+ -- Chris Lamb <lamby@debian.org>  Wed, 29 Jan 2020 14:18:27 +0100
+
 hiredis (0.11.0-4) unstable; urgency=medium
 
   * Symlinks for cmake 3.0 (closes: #758548)
