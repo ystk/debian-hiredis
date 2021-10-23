@@ -1,3 +1,10 @@
+hiredis (0.11.0-4+deb8u2) jessie-security; urgency=medium
+
+  * CVE-2021-32765: Prevent an integer overflow vulnerability when parsing
+    'multi-bulk' replies.
+
+ -- Chris Lamb <lamby@debian.org>  Sat, 23 Oct 2021 17:16:44 +0100
+
 hiredis (0.11.0-4+deb8u1) jessie-security; urgency=high
 
   * CVE-2020-7105: Prevent a large number of NULL pointer redeferences
